@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="circuito">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>MONTA.SYS — Monte a Máquina</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='9' fill='%230A1220'/%3E%3Crect x='13' y='13' width='22' height='22' rx='2' fill='none' stroke='%234FD1C5' stroke-width='2.5'/%3E%3Cpath d='M13 19H7M13 29H7M35 19h6M35 29h6M19 13V7M29 13V7M19 35v6M29 35v6' stroke='%23F5A623' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1220; --bg-2:#0D1626; --panel:#101C31; --panel-2:#0C1729;
+    --grid-line: rgba(79,209,197,0.06);
+    --trace:#4FD1C5; --amber:#F5A623;
+    --amber-soft: rgba(245,166,35,0.18);
+    --amber-glow-a: rgba(245,166,35,0.5); --amber-glow-b: rgba(245,166,35,0);
+    --bg-glow-1: rgba(79,209,197,0.06); --bg-glow-2: rgba(245,166,35,0.05);
+    --text:#E7EEF8; --text-dim:#7E93B3;
+    --danger:#E8635C; --success:#5FD08A;
+    --slot-border:#26374F; --radius:10px;
+  }
+  html[data-theme="terminal"]{
+    --bg:#050805; --bg-2:#081008; --panel:#0B140B; --panel-2:#0E1B0E;
+    --grid-line: rgba(51,255,102,0.06);
+    --trace:#3CFF74; --amber:#FFD166;
+    --amber-soft: rgba(255,209,102,0.18);
+    --amber-glow-a: rgba(255,209,102,0.5); --amber-glow-b: rgba(255,209,102,0);
+    --bg-glow-1: rgba(60,255,116,0.05); --bg-glow-2: rgba(255,209,102,0.04);
+    --text:#B9FFCB; --text-dim:#4C8A5E;
+    --danger:#FF6B5C; --success:#3CFF74;
+    --slot-border:#1E3A24;
+  }
+  html[data-theme="oficina"]{
+    --bg:#EEF3F8; --bg-2:#E4ECF5; --panel:#FFFFFF; --panel-2:#F3F7FB;
+    --grid-line: rgba(20,40,70,0.07);
+    --trace:#2E6F8E; --amber:#E08A2C;
+    --amber-soft: rgba(224,138,44,0.16);
+    --amber-glow-a: rgba(224,138,44,0.45); --amber-glow-b: rgba(224,138,44,0);
+    --bg-glow-1: rgba(46,111,142,0.05); --bg-glow-2: rgba(224,138,44,0.05);
+    --text:#132437; --text-dim:#5C7085;
+    --danger:#D1453B; --success:#2E9E63;
+    --slot-border:#C7D4E3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 10%, var(--bg-glow-1), transparent 40%),
+      radial-gradient(circle at 85% 90%, var(--bg-glow-2), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    position:relative;
+  }
+  html[data-theme="terminal"] body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:repeating-linear-gradient(rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.12) 3px);
+    mix-blend-mode:multiply;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+
+  .app{ max-width:1180px; margin:0 auto; padding:22px 18px 60px; position:relative; z-index:2; }
+
+  header{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px; border-bottom:1px solid var(--slot-border); padding-bottom:16px;}
+  .title-block h1{ font-family:'JetBrains Mono', monospace; font-size:clamp(22px,4vw,30px); letter-spacing:0.5px; margin:0 0 6px; color:var(--text); }
+  .title-block h1 span{ color:var(--trace); }
+  .title-block p{ margin:0; color:var(--text-dim); font-size:14px; max-width:52ch; line-height:1.5; }
+
+  .hud{ display:flex; gap:10px; flex-wrap:wrap; }
+  .hud-item{ font-family:'JetBrains Mono', monospace; font-size:12px; background:var(--panel); border:1px solid var(--slot-border); border-radius:8px; padding:8px 12px; min-width:86px; text-align:center; }
+  .hud-item b{ display:block; font-size:16px; margin-top:2px; color:var(--trace); font-weight:500; }
+  .hud-item.hint-count b{ color:var(--amber); }
+
+  .settings-bar{ display:flex; flex-wrap:wrap; gap:18px; align-items:center; margin:14px 0 18px; }
+  .seg-label{ font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-right:2px; }
+  .seg-group{ display:inline-flex; gap:4px; background:var(--panel); border:1px solid var(--slot-border); border-radius:9px; padding:4px; }
+  .seg-btn{ font-family:'JetBrains Mono', monospace; font-size:11.5px; letter-spacing:0.5px; background:transparent; border:none; color:var(--text-dim); padding:6px 12px; border-radius:6px; cursor:pointer; transition:background .15s, color .15s; }
+  .seg-btn:hover{ color:var(--text); }
+  .seg-btn.active{ background:var(--panel-2); color:var(--trace); box-shadow: inset 0 0 0 1px var(--slot-border); }
+
+  .stage{ display:flex; gap:20px; align-items:flex-start; position:relative; }
+  .start-overlay{ position:absolute; inset:0; background:rgba(6,10,18,0.82); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; z-index:40; border-radius:14px; padding:20px; }
+  .start-overlay.hide{ display:none; }
+  .start-card{ background:var(--panel); border:1px solid var(--slot-border); border-radius:14px; padding:30px 28px; max-width:360px; width:100%; text-align:center; }
+  .start-card h2{ font-family:'JetBrains Mono', monospace; font-size:17px; margin:0 0 8px; color:var(--trace); }
+  .start-card p{ margin:0 0 20px; font-size:13.5px; color:var(--text-dim); line-height:1.5; }
+  .start-card .modalBtn{ width:100%; border-color:var(--amber); color:var(--amber); padding:12px; font-size:14.5px; }
+  .board-wrap{ flex:1 1 640px; background:var(--panel); border:1px solid var(--slot-border); border-radius:14px; padding:18px;
+    background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size:24px 24px; position:relative; }
+  .board-label{ font-family:'JetBrains Mono', monospace; font-size:11px; letter-spacing:1.5px; color:var(--text-dim); text-transform:uppercase; margin:0 0 12px; }
+  .case-caption{ font-size:11.5px; color:var(--text-dim); font-style:italic; margin:12px 2px 0; line-height:1.4; }
+
+  .board{ display:grid; grid-template-columns:3fr 1.15fr; grid-template-rows:1fr 1fr; grid-template-areas: "mobo psu" "mobo stor"; gap:14px; align-items:stretch; }
+  .mobo-panel{ grid-area:mobo; border:1.5px solid var(--slot-border); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:10px; background:rgba(255,255,255,0.01); }
+  .mobo-caption{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin:0; }
+  .mobo-grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; grid-template-rows:1fr 1fr; grid-template-areas: "cpu cooler ram1 ram2" "gpu gpu gpu gpu"; gap:10px; flex:1; }
+  .slot-cpu{grid-area:cpu;} .slot-cooler{grid-area:cooler;} .slot-ram1{grid-area:ram1;} .slot-ram2{grid-area:ram2;} .slot-gpu{grid-area:gpu; min-height:76px;}
+  .slot-psu{grid-area:psu; min-height:100px;} .slot-stor{grid-area:stor; min-height:76px;}
+
+  .slot{ border:2px dashed var(--slot-border); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    background:rgba(79,209,197,0.02); transition:border-color .18s, background .18s; padding:6px; cursor:pointer; outline-offset:3px; min-height:70px; text-align:center; }
+  .slot:focus-visible{ outline:2px solid var(--trace); }
+  .slot-visual{ display:none; }
+  .slot-visual svg{ width:26px; height:26px; opacity:0.32; stroke:var(--text-dim); }
+  .slot-hint-text{ display:none; font-size:9.5px; line-height:1.25; color:var(--amber); padding:0 2px; }
+  .slot-tag{ font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:0.5px; color:var(--success); display:none; }
+  .slot[data-filled="true"]{ border-style:solid; border-color:var(--success); background:rgba(95,208,138,0.08); cursor:default; }
+  .slot[data-filled="true"] .slot-tag{ display:block; }
+  .slot[data-filled="true"] .slot-visual, .slot[data-filled="true"] .slot-hint-text{ display:none !important; }
+  .slot.wrong-flash{ animation:wrongFlash .45s ease; }
+  .slot.hint-pulse{ animation:hintPulse .7s ease-in-out infinite alternate; border-color:var(--amber); }
+  @keyframes wrongFlash{ 0%,100%{border-color:var(--slot-border);} 40%{border-color:var(--danger); background:rgba(232,99,92,0.12);} }
+  @keyframes hintPulse{ from{ box-shadow:0 0 0 0 var(--amber-glow-a);} to{ box-shadow:0 0 0 8px var(--amber-glow-b);} }
+
+  body.diff-facil .piece-icon, body.diff-facil .slot-visual{ display:flex; }
+  body.diff-medio .piece-icon{ display:flex; } body.diff-medio .piece-name{ display:block; } body.diff-medio .slot-hint-text{ display:flex; align-items:center; justify-content:center; }
+  body.diff-dificil .piece-name{ display:block; }
+
+  aside.tray-wrap{ flex:0 0 300px; display:flex; flex-direction:column; gap:14px; }
+  .info-panel{ background:var(--panel); border:1px solid var(--slot-border); border-radius:12px; padding:14px 16px; min-height:108px; }
+  .info-panel .label{ font-family:'JetBrains Mono', monospace; font-size:10.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--trace); margin:0 0 6px; }
+  .info-panel h3{ margin:0 0 6px; font-size:15px; }
+  .info-panel p{ margin:0; font-size:13px; color:var(--text-dim); line-height:1.5; }
+
+  .tray{ background:var(--panel); border:1px solid var(--slot-border); border-radius:12px; padding:14px; display:flex; flex-wrap:wrap; gap:10px; align-content:flex-start; min-height:260px; }
+  .piece{ width:92px; min-height:82px; background:var(--panel-2); border:1.5px solid var(--slot-border); border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;
+    transition:border-color .15s, transform .15s, opacity .15s; position:relative; padding:8px 6px; }
+  .piece:focus-visible{ outline:2px solid var(--trace); outline-offset:2px; }
+  .piece-icon{ display:none; }
+  .piece-icon svg{ width:26px; height:26px; stroke:var(--text); }
+  .piece-name{ display:none; font-size:10px; line-height:1.2; color:var(--text-dim); text-align:center; }
+  .piece.selected{ border-color:var(--amber); box-shadow:0 0 0 3px var(--amber-soft); }
+  .piece.dragging{ opacity:0.25; }
+  .piece.placed{ display:none; }
+  .piece.shake{ animation:shake .4s ease; }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
+
+  .ghost{ position:fixed; z-index:999; pointer-events:none; width:82px; height:82px; background:var(--panel-2); border:1.5px solid var(--amber); border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 22px rgba(0,0,0,0.4); }
+  .ghost svg{ width:30px; height:30px; stroke:var(--amber); }
+
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translate(-50%, 12px); background:var(--panel); border:1px solid var(--slot-border); border-radius:9px; padding:10px 18px; font-size:13.5px; color:var(--text);
+    opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; z-index:50; max-width:90vw; text-align:center; }
+  .toast.success{ border-color:var(--success); } .toast.error{ border-color:var(--danger); } .toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  .hintBtn, .restartBtn, .modalBtn{ font-family:'Inter', sans-serif; font-weight:600; font-size:13.5px; background:transparent; color:var(--text); border:1px solid var(--slot-border); border-radius:8px; padding:9px 14px; cursor:pointer; transition:border-color .15s, color .15s; }
+  .hintBtn:hover:not(:disabled), .restartBtn:hover, .modalBtn:hover{ border-color:var(--trace); color:var(--trace); }
+  .hintBtn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .tray-actions{ display:flex; gap:10px; }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(6,10,18,0.78); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .modal-overlay.show{ display:flex; }
+  .modal{ background:var(--panel); border:1px solid var(--slot-border); border-radius:14px; padding:30px 28px; max-width:420px; width:100%; text-align:center; }
+  .modal .grade{ font-size:34px; margin-bottom:6px; }
+  .modal h2{ font-family:'JetBrains Mono', monospace; font-size:18px; margin:0 0 4px; color:var(--trace); }
+  .modal .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0; text-align:left; }
+  .modal .stat{ background:var(--panel-2); border:1px solid var(--slot-border); border-radius:8px; padding:10px 12px; }
+  .modal .stat .k{ font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+  .modal .stat .v{ font-size:18px; font-weight:600; margin-top:2px; }
+  .modal .modalBtn{ width:100%; border-color:var(--trace); color:var(--trace); padding:11px; }
+
+  @media (max-width:860px){
+    .stage{ flex-direction:column; }
+    aside.tray-wrap{ flex:1 1 auto; width:100%; }
+    .board{ grid-template-columns:1fr; grid-template-areas:"mobo" "psu" "stor"; }
+    .piece{ width:82px; }
+  }
+</style>
+</head>
+<body class="diff-medio">
+<div class="app">
+  <header>
+    <div class="title-block">
+      <h1>MONTA<span>.SYS</span></h1>
+      <p>Arraste cada peça até o encaixe certo e monte o computador. Clique numa peça para ver o que ela faz.</p>
+    </div>
+    <div class="hud">
+      <div class="hud-item">TEMPO<b id="hudTime">00:00</b></div>
+      <div class="hud-item">PONTOS<b id="hudScore">0</b></div>
+      <div class="hud-item hint-count">DICAS<b id="hudHints">0</b></div>
+    </div>
+  </header>
+
+  <div class="settings-bar">
+    <div><span class="seg-label">Dificuldade</span>
+      <div class="seg-group" id="diffGroup">
+        <button class="seg-btn" data-diff="facil">Fácil</button>
+        <button class="seg-btn active" data-diff="medio">Médio</button>
+        <button class="seg-btn" data-diff="dificil">Difícil</button>
+      </div>
+    </div>
+    <div><span class="seg-label">Tema</span>
+      <div class="seg-group" id="themeGroup">
+        <button class="seg-btn active" data-theme="circuito">Circuito</button>
+        <button class="seg-btn" data-theme="terminal">Terminal</button>
+        <button class="seg-btn" data-theme="oficina">Oficina</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="start-overlay" id="startOverlay">
+      <div class="start-card">
+        <h2>Pronto pra montar?</h2>
+        <p>O cronômetro só começa a contar quando você clicar em iniciar.</p>
+        <button class="modalBtn" id="startBtn">Iniciar montagem</button>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <p class="board-label">// gabinete — vista interna</p>
+      <div class="board" id="board">
+        <div class="mobo-panel">
+          <p class="mobo-caption">// placa-mãe</p>
+          <div class="mobo-grid">
+            <div class="slot slot-cpu" data-kind="cpu" tabindex="0">
+              <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="12" y="12" width="24" height="24" rx="2"/><path d="M12 18h-5M12 30h-5M36 18h5M36 30h5M18 12v-5M30 12v-5M18 36v5M30 36v5"/></svg></div>
+              <div class="slot-hint-text"></div><span class="slot-tag"></span>
+            </div>
+            <div class="slot slot-cooler" data-kind="cooler" tabindex="0">
+              <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><circle cx="24" cy="24" r="14"/><path d="M24 10c3 4 3 8 0 10M38 24c-4 3-8 3-10 0M24 38c-3-4-3-8 0-10M10 24c4-3 8-3 10 0"/></svg></div>
+              <div class="slot-hint-text"></div><span class="slot-tag"></span>
+            </div>
+            <div class="slot slot-ram1" data-kind="ram" tabindex="0">
+              <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="16" y="6" width="16" height="36" rx="1"/><path d="M20 42v4M28 42v4M20 6v-2M28 6v-2"/></svg></div>
+              <div class="slot-hint-text"></div><span class="slot-tag"></span>
+            </div>
+            <div class="slot slot-ram2" data-kind="ram" tabindex="0">
+              <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="16" y="6" width="16" height="36" rx="1"/><path d="M20 42v4M28 42v4M20 6v-2M28 6v-2"/></svg></div>
+              <div class="slot-hint-text"></div><span class="slot-tag"></span>
+            </div>
+            <div class="slot slot-gpu" data-kind="gpu" tabindex="0">
+              <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="6" y="16" width="36" height="16" rx="2"/><circle cx="16" cy="24" r="4"/><circle cx="30" cy="24" r="4"/><path d="M42 20v8"/></svg></div>
+              <div class="slot-hint-text"></div><span class="slot-tag"></span>
+            </div>
+          </div>
+        </div>
+        <div class="slot slot-psu" data-kind="psu" tabindex="0">
+          <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="10" y="6" width="28" height="36" rx="2"/><circle cx="24" cy="19" r="7"/><path d="M18 34h12"/></svg></div>
+          <div class="slot-hint-text"></div><span class="slot-tag"></span>
+        </div>
+        <div class="slot slot-stor" data-kind="stor" tabindex="0">
+          <div class="slot-visual"><svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="8" y="12" width="32" height="24" rx="2"/><path d="M14 20h20M14 26h12"/></svg></div>
+          <div class="slot-hint-text"></div><span class="slot-tag"></span>
+        </div>
+      </div>
+      <p class="case-caption">A fonte e o armazenamento ficam no gabinete, fora da placa-mãe, ligados a ela por cabos.</p>
+    </div>
+
+    <aside class="tray-wrap">
+      <div class="info-panel" id="infoPanel">
+        <p class="label">// componente</p>
+        <h3 id="infoName">Selecione uma peça</h3>
+        <p id="infoDesc">Clique ou toque em qualquer peça na bandeja para ler o que ela faz dentro do computador.</p>
+      </div>
+      <div class="tray" id="tray"></div>
+      <div class="tray-actions">
+        <button class="hintBtn" id="hintBtn" disabled>Usar dica (-30)</button>
+        <button class="restartBtn" id="restartBtn">Reiniciar</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="endModal">
+  <div class="modal">
+    <div class="grade" id="modalGrade">🏆</div>
+    <h2 id="modalTitle">Máquina montada!</h2>
+    <div class="stats">
+      <div class="stat"><div class="k">Tempo</div><div class="v" id="statTime">00:00</div></div>
+      <div class="stat"><div class="k">Pontos</div><div class="v" id="statScore">0</div></div>
+      <div class="stat"><div class="k">Erros</div><div class="v" id="statErrors">0</div></div>
+      <div class="stat"><div class="k">Dicas usadas</div><div class="v" id="statHints">0</div></div>
+    </div>
+    <button class="modalBtn" id="modalRestart">Montar outra vez</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const PIECES = [
+    { id:'p-cpu', kind:'cpu', name:'Processador (CPU)', desc:'É o cérebro do computador: executa as instruções dos programas e faz os cálculos.' },
+    { id:'p-cooler', kind:'cooler', name:'Cooler / Dissipador', desc:'Resfria o processador para ele não superaquecer enquanto trabalha.' },
+    { id:'p-ram1', kind:'ram', name:'Memória RAM', desc:'Memória de curto prazo: guarda os dados que o processador está usando neste momento.' },
+    { id:'p-ram2', kind:'ram', name:'Memória RAM', desc:'Memória de curto prazo: guarda os dados que o processador está usando neste momento.' },
+    { id:'p-gpu', kind:'gpu', name:'Placa de Vídeo (GPU)', desc:'Processa imagens e gráficos. Essencial para jogos, vídeos e edição.' },
+    { id:'p-stor', kind:'stor', name:'Armazenamento (SSD/HD)', desc:'Guarda os arquivos e o sistema operacional de forma permanente, mesmo com o PC desligado.' },
+    { id:'p-psu', kind:'psu', name:'Fonte de Alimentação', desc:'Converte a energia da tomada e distribui a quantidade certa para cada componente.' },
+  ];
+
+  const ICONS = {
+    cpu: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="12" y="12" width="24" height="24" rx="2"/><path d="M12 18h-5M12 30h-5M36 18h5M36 30h5M18 12v-5M30 12v-5M18 36v5M30 36v5"/></svg>',
+    cooler: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><circle cx="24" cy="24" r="14"/><path d="M24 10c3 4 3 8 0 10M38 24c-4 3-8 3-10 0M24 38c-3-4-3-8 0-10M10 24c4-3 8-3 10 0"/></svg>',
+    ram: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="16" y="6" width="16" height="36" rx="1"/><path d="M20 42v4M28 42v4M20 6v-2M28 6v-2"/></svg>',
+    gpu: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="6" y="16" width="36" height="16" rx="2"/><circle cx="16" cy="24" r="4"/><circle cx="30" cy="24" r="4"/><path d="M42 20v8"/></svg>',
+    stor: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="8" y="12" width="32" height="24" rx="2"/><path d="M14 20h20M14 26h12"/></svg>',
+    psu: '<svg viewBox="0 0 48 48" fill="none" stroke-width="2"><rect x="10" y="6" width="28" height="36" rx="2"/><circle cx="24" cy="19" r="7"/><path d="M18 34h12"/></svg>',
+  };
+
+  const HINTS = {
+    cpu: 'Faz os cálculos e executa as instruções',
+    cooler: 'Resfria o processador',
+    ram: 'Guarda os dados em uso no momento',
+    gpu: 'Processa imagens e gráficos',
+    stor: 'Guarda arquivos de forma permanente',
+    psu: 'Fornece energia para os componentes',
+  };
+
+  const tray = document.getElementById('tray');
+  const board = document.getElementById('board');
+  const infoName = document.getElementById('infoName');
+  const infoDesc = document.getElementById('infoDesc');
+  const toast = document.getElementById('toast');
+  const hudTime = document.getElementById('hudTime');
+  const hudScore = document.getElementById('hudScore');
+  const hudHints = document.getElementById('hudHints');
+  const hintBtn = document.getElementById('hintBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const endModal = document.getElementById('endModal');
+  const modalRestart = document.getElementById('modalRestart');
+  const diffGroup = document.getElementById('diffGroup');
+  const themeGroup = document.getElementById('themeGroup');
+  const startOverlay = document.getElementById('startOverlay');
+  const startBtn = document.getElementById('startBtn');
+
+  let state = {};
+  let toastTimer = null;
+  let tickInterval = null;
+  let ghostEl = null;
+  let dragPieceEl = null;
+  let dragOffset = {x:0, y:0};
+  let difficulty = 'medio';
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+
+  function resetState(){
+    state = { score:0, errors:0, hintsUsed:0, filled:0, total:PIECES.length, seconds:0, running:false, selectedId:null };
+    hudScore.textContent='0'; hudHints.textContent='0'; hudTime.textContent='00:00';
+    infoName.textContent='Selecione uma peça';
+    infoDesc.textContent='Clique ou toque em qualquer peça na bandeja para ler o que ela faz dentro do computador.';
+    hintBtn.disabled = true;
+    endModal.classList.remove('show');
+    document.querySelectorAll('.slot').forEach(s=>{
+      s.dataset.filled='false';
+      s.classList.remove('hint-pulse');
+      s.querySelector('.slot-tag').textContent='';
+      s.querySelector('.slot-hint-text').textContent = HINTS[s.dataset.kind] || '';
+    });
+    buildTray();
+    clearInterval(tickInterval);
+    startOverlay.classList.remove('hide');
+  }
+
+  function beginGame(){
+    if(state.running) return;
+    state.running = true;
+    clearInterval(tickInterval);
+    tickInterval = setInterval(tick, 1000);
+    startOverlay.classList.add('hide');
+  }
+
+  function buildTray(){
+    tray.innerHTML = '';
+    shuffle(PIECES).forEach(p=>{
+      const el = document.createElement('div');
+      el.className = 'piece';
+      el.dataset.id = p.id; el.dataset.kind = p.kind; el.tabIndex = 0;
+      el.innerHTML = '<div class="piece-icon">'+ICONS[p.kind]+'</div><div class="piece-name">'+p.name+'</div>';
+      el.addEventListener('pointerdown', onPointerDown);
+      el.addEventListener('click', ()=> selectPiece(p.id));
+      el.addEventListener('keydown', (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectPiece(p.id); }});
+      tray.appendChild(el);
+    });
+  }
+
+  function pieceById(id){ return PIECES.find(p=>p.id===id); }
+
+  function selectPiece(id){
+    document.querySelectorAll('.piece').forEach(el=> el.classList.toggle('selected', el.dataset.id===id));
+    state.selectedId = id;
+    const p = pieceById(id);
+    infoName.textContent = p.name;
+    infoDesc.textContent = p.desc;
+    hintBtn.disabled = false;
+  }
+
+  function showToast(msg, type){
+    toast.textContent = msg;
+    toast.className = 'toast show ' + (type||'');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> toast.classList.remove('show'), 2200);
+  }
+
+  function tick(){
+    if(!state.running) return;
+    state.seconds++;
+    const m = String(Math.floor(state.seconds/60)).padStart(2,'0');
+    const s = String(state.seconds%60).padStart(2,'0');
+    hudTime.textContent = m+':'+s;
+  }
+
+  function attemptPlace(pieceEl, slotEl){
+    if(!slotEl || !pieceEl) return false;
+    if(slotEl.dataset.filled==='true') return false;
+    return slotEl.dataset.kind === pieceEl.dataset.kind;
+  }
+
+  function placeSuccess(pieceEl, slotEl){
+    const p = pieceById(pieceEl.dataset.id);
+    slotEl.dataset.filled='true';
+    slotEl.querySelector('.slot-tag').textContent = p.name;
+    slotEl.classList.remove('hint-pulse');
+    pieceEl.classList.add('placed');
+    state.score += 100; state.filled++;
+    hudScore.textContent = state.score;
+    showToast(p.name + ' instalado! ' + p.desc, 'success');
+    if(state.filled >= state.total) finishGame();
+  }
+
+  function placeFail(pieceEl, slotEl){
+    state.score = Math.max(0, state.score-20); state.errors++;
+    hudScore.textContent = state.score;
+    pieceEl.classList.add('shake');
+    setTimeout(()=> pieceEl.classList.remove('shake'), 420);
+    if(slotEl){ slotEl.classList.add('wrong-flash'); setTimeout(()=> slotEl.classList.remove('wrong-flash'), 450); }
+    showToast('Essa peça não vai aí. Pense na função dela.', 'error');
+  }
+
+  function finishGame(){
+    state.running = false;
+    clearInterval(tickInterval);
+    document.getElementById('statTime').textContent = hudTime.textContent;
+    document.getElementById('statScore').textContent = state.score;
+    document.getElementById('statErrors').textContent = state.errors;
+    document.getElementById('statHints').textContent = state.hintsUsed;
+    let grade='🔩', title='Precisa praticar mais';
+    if(state.score>=650 && state.seconds<=90){ grade='🏆'; title='Mestre da Montagem'; }
+    else if(state.score>=550){ grade='🔧'; title='Técnico Pleno'; }
+    else if(state.score>=400){ grade='🧰'; title='Aprendiz Aplicado'; }
+    document.getElementById('modalGrade').textContent = grade;
+    document.getElementById('modalTitle').textContent = title;
+    setTimeout(()=> endModal.classList.add('show'), 500);
+  }
+
+  board.addEventListener('click', (e)=>{
+    const slotEl = e.target.closest('.slot');
+    if(!slotEl || !state.selectedId) return;
+    const pieceEl = tray.querySelector('.piece[data-id="'+state.selectedId+'"]');
+    if(!pieceEl || pieceEl.classList.contains('placed')) return;
+    if(attemptPlace(pieceEl, slotEl)) placeSuccess(pieceEl, slotEl); else placeFail(pieceEl, slotEl);
+  });
+  board.addEventListener('keydown', (e)=>{
+    if(e.key!=='Enter' && e.key!==' ') return;
+    const slotEl = e.target.closest('.slot');
+    if(!slotEl || !state.selectedId) return;
+    e.preventDefault();
+    const pieceEl = tray.querySelector('.piece[data-id="'+state.selectedId+'"]');
+    if(!pieceEl || pieceEl.classList.contains('placed')) return;
+    if(attemptPlace(pieceEl, slotEl)) placeSuccess(pieceEl, slotEl); else placeFail(pieceEl, slotEl);
+  });
+
+  function onPointerDown(e){
+    const pieceEl = e.currentTarget;
+    if(pieceEl.classList.contains('placed')) return;
+    e.preventDefault();
+    selectPiece(pieceEl.dataset.id);
+    dragPieceEl = pieceEl;
+    const rect = pieceEl.getBoundingClientRect();
+    dragOffset.x = e.clientX - rect.left; dragOffset.y = e.clientY - rect.top;
+    ghostEl = document.createElement('div');
+    ghostEl.className = 'ghost';
+    ghostEl.innerHTML = ICONS[pieceEl.dataset.kind];
+    ghostEl.style.left = rect.left+'px'; ghostEl.style.top = rect.top+'px';
+    document.body.appendChild(ghostEl);
+    pieceEl.classList.add('dragging');
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }
+  function onPointerMove(e){
+    if(!ghostEl) return;
+    ghostEl.style.left = (e.clientX-dragOffset.x)+'px';
+    ghostEl.style.top = (e.clientY-dragOffset.y)+'px';
+  }
+  function onPointerUp(e){
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    if(!ghostEl || !dragPieceEl) return;
+    ghostEl.style.display='none';
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const slotEl = under ? under.closest('.slot') : null;
+    ghostEl.remove(); ghostEl=null;
+    dragPieceEl.classList.remove('dragging');
+    if(slotEl){ if(attemptPlace(dragPieceEl, slotEl)) placeSuccess(dragPieceEl, slotEl); else placeFail(dragPieceEl, slotEl); }
+    dragPieceEl = null;
+  }
+
+  hintBtn.addEventListener('click', ()=>{
+    if(!state.selectedId) return;
+    const pieceEl = tray.querySelector('.piece[data-id="'+state.selectedId+'"]');
+    if(!pieceEl || pieceEl.classList.contains('placed')) return;
+    const kind = pieceEl.dataset.kind;
+    const targets = Array.from(document.querySelectorAll('.slot')).filter(s=> s.dataset.kind===kind && s.dataset.filled!=='true');
+    if(targets.length===0) return;
+    targets.forEach(s=> s.classList.add('hint-pulse'));
+    state.score = Math.max(0, state.score-30); state.hintsUsed++;
+    hudScore.textContent = state.score; hudHints.textContent = state.hintsUsed;
+    setTimeout(()=> targets.forEach(s=> s.classList.remove('hint-pulse')), 2400);
+  });
+
+  restartBtn.addEventListener('click', resetState);
+  modalRestart.addEventListener('click', resetState);
+  startBtn.addEventListener('click', beginGame);
+
+  diffGroup.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.seg-btn');
+    if(!btn) return;
+    difficulty = btn.dataset.diff;
+    diffGroup.querySelectorAll('.seg-btn').forEach(b=> b.classList.toggle('active', b===btn));
+    document.body.className = 'diff-' + difficulty;
+    resetState();
+    const names = {facil:'Fácil', medio:'Médio', dificil:'Difícil'};
+    showToast('Dificuldade: ' + names[difficulty] + ' — jogo reiniciado', '');
+  });
+
+  themeGroup.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.seg-btn');
+    if(!btn) return;
+    document.documentElement.setAttribute('data-theme', btn.dataset.theme);
+    themeGroup.querySelectorAll('.seg-btn').forEach(b=> b.classList.toggle('active', b===btn));
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>
